@@ -62,14 +62,13 @@ sp = spotipy.Spotify(auth = access_token)
 username = 'Ray Fontaine'
 playlist_id = '2YRe7HRKNRvXdJBp9nXFza'
 
-def get_playlist_tracks_more_than_100_songs(username, playlist_id):
+def analyze_playlist_tracks(username, playlist_id):
     
-    #key data was stored as numeral, so we need to convert to readable keys
-    
+    # Convert key values from numerals to readable keys
     def convert_key(key_value):
-        keys = {-
+        keys = {
             0: 'C',
-            1: 'C#/Db', #enharmonics are important
+            1: 'C#/Db', # enharmonics are important
             2: 'D',
             3: 'D#/Eb',
             4: 'E',
@@ -94,87 +93,78 @@ def get_playlist_tracks_more_than_100_songs(username, playlist_id):
         tracks.extend(results['items'])
     results = tracks    
 
-    playlist_tracks_id = []
+    playlist_tracks_ids = []
     playlist_tracks_titles = []
     playlist_tracks_artists = []
-    playlist_tracks_first_release_date = []
+    playlist_tracks_first_release_dates = []
     playlist_tracks_popularity = []
 
-    print('Currently Running... please stay tuned!')
+    print('Currently running... Please stay tuned!')
     progress_bar = tqdm(total=len(results), ncols=80)
-    #progress bar fun
     
     for i in range(len(results)):
         progress_bar.update(1)
 
-        #this data isn't all being used in the graph, but it is in the csv file if you want to further analyze it!
+        # This data isn't all being used in the graph, but it is in the CSV file if you want to further analyze it!
         if i == 0:
-            playlist_tracks_id = results[i]['track']['id']
+            playlist_tracks_ids = results[i]['track']['id']
             playlist_tracks_titles = results[i]['track']['name']
-            playlist_tracks_first_release_date = results[i]['track']['album']['release_date']
+            playlist_tracks_first_release_dates = results[i]['track']['album']['release_date']
             playlist_tracks_popularity = results[i]['track']['popularity']
 
             artist_list = []
             for artist in results[i]['track']['artists']:
-                artist_list= artist['name']
+                artist_list.append(artist['name'])
             playlist_tracks_artists = artist_list
 
-            features = sp.audio_features(playlist_tracks_id)
+            features = sp.audio_features(playlist_tracks_ids)
             features_df = pd.DataFrame(data=features, columns=features[0].keys())
             features_df['title'] = playlist_tracks_titles
             features_df['all_artists'] = playlist_tracks_artists
             features_df['popularity'] = playlist_tracks_popularity
-            features_df['release_date'] = playlist_tracks_first_release_date
-            features_df = features_df[['id', 'title', 'all_artists', 'popularity', 'release_date',
-                                       'danceability', 'energy', 'key', 'loudness',
-                                       'mode', 'acousticness', 'instrumentalness',
-                                       'liveness', 'valence', 'tempo',
-                                       'duration_ms', 'time_signature']]
+            features_df['release_date'] = playlist_tracks_first_release_dates
+            features_df = features_df[['id', 'title', 'all_artists', 'release_date',
+                                       'key', 'tempo', 'duration_ms', 'time_signature']]
             features_df['duration_sec'] = features_df['duration_ms'] / 1000
             features_df['key'] = features_df['key'].apply(convert_key) 
             continue
         else:
             try:
-                playlist_tracks_id = results[i]['track']['id']
+                playlist_tracks_ids = results[i]['track']['id']
                 playlist_tracks_titles = results[i]['track']['name']
-                playlist_tracks_first_release_date = results[i]['track']['album']['release_date']
+                playlist_tracks_first_release_dates = results[i]['track']['album']['release_date']
                 playlist_tracks_popularity = results[i]['track']['popularity']
                 artist_list = []
                 for artist in results[i]['track']['artists']:
-                    artist_list= artist['name']
+                    artist_list.append(artist['name'])
                 playlist_tracks_artists = artist_list
-                features = sp.audio_features(playlist_tracks_id)
-                new_row = {'id':[playlist_tracks_id],
-               'title':[playlist_tracks_titles],
-               'all_artists':[playlist_tracks_artists],
-               'popularity':[playlist_tracks_popularity],
-               'release_date':[playlist_tracks_first_release_date],
-               'danceability':[features[0]['danceability']],
-               'energy':[features[0]['energy']],
-               'key':[convert_key(features[0]['key'])], 
-               'loudness':[features[0]['loudness']],
-               'mode':[features[0]['mode']],
-               'acousticness':[features[0]['acousticness']],
-               'instrumentalness':[features[0]['instrumentalness']],
-               'liveness':[features[0]['liveness']],
-               'valence':[features[0]['valence']],
-               'tempo':[features[0]['tempo']],
-               'duration_ms':[features[0]['duration_ms']],
-               'duration_sec':[features[0]['duration_ms'] / 1000], 
-               'time_signature':[features[0]['time_signature']]}
+                features = sp.audio_features(playlist_tracks_ids)
+                new_row = {
+                    'id': [playlist_tracks_ids],
+                    'title': [playlist_tracks_titles],
+                    'all_artists': [playlist_tracks_artists],
+                    'release_date': [playlist_tracks_first_release_dates],
+                    'key': [convert_key(features[0]['key'])],
+                    'tempo': [features[0]['tempo']],
+                    'duration_ms': [features[0]['duration_ms']],
+                    'duration_sec': [features[0]['duration_ms'] / 1000],
+                    'time_signature': [features[0]['time_signature']]
+                }
                 features_df = pd.concat([features_df, pd.DataFrame(new_row)], ignore_index=True)
                 
             except:
                 continue
-            
-    import matplotlib.pyplot as plt #plotting time
+    
+    # Plotting key distribution
+    import matplotlib.pyplot as plt
     key_counts = features_df['key'].value_counts()
     plt.figure(figsize=(8, 6))
     plt.pie(key_counts, labels=key_counts.index, autopct='%1.1f%%', startangle=90)
     plt.title('Key Distribution')
     plt.axis('equal') 
     plt.show()
-        
+    
+    # Plotting tempo distribution
     tempo_values = features_df['tempo']
     plt.figure(figsize=(8, 6))
     plt.hist(tempo_values, bins=range(50, 220, 10), edgecolor='black')
@@ -183,6 +173,7 @@ def get_playlist_tracks_more_than_100_songs(username, playlist_id):
     plt.ylabel('Count')
     plt.show()
     
+    # Plotting time signature distribution
     time_signature_counts = features_df['time_signature'].value_counts()
     labels = time_signature_counts.index.astype(str) + '/4'
     plt.figure(figsize=(8, 6))
@@ -190,8 +181,8 @@ def get_playlist_tracks_more_than_100_songs(username, playlist_id):
     plt.title('Time Signature Distribution')
     plt.axis('equal')
     plt.show()
-
     
+    # Plotting song release year distribution
     features_df['release_year'] = pd.to_datetime(features_df['release_date']).dt.year
     plt.figure(figsize=(8, 6))
     plt.hist(features_df['release_year'], bins=range(1960, 2025, 5), edgecolor='black')
@@ -203,11 +194,8 @@ def get_playlist_tracks_more_than_100_songs(username, playlist_id):
     return features_df
     
 
-    
-
-
-playlist_tracks_df = get_playlist_tracks_more_than_100_songs(username, playlist_id)
+playlist_tracks_df = analyze_playlist_tracks(username, playlist_id)
 
 playlist_tracks_df.to_csv('playlist_tracks.csv', index=False)
 
-print(' Completed! Have fun with the data!')
+print('Completed! Have fun with the data!')
